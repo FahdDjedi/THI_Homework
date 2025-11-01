@@ -1,4 +1,3 @@
-import numpy as np
 from collections import Counter
 import math
 
@@ -62,18 +61,19 @@ def source_entropy(probabilities):
     return entropy
 
 
-def analyze_source(source):
+def analyze_source(source, probabilities):
     """
     Complete analysis of a source: probabilities, information quantities and entropy
     Args:
         source: List or string of symbols
+        probabilities: Dictionary {symbol: probability} or None
     Returns:
         None
     """
     print("SOURCE ANALYSIS ", "-" * 35)
     
-    
-    probabilities = calculate_probabilities(source)
+    if probabilities is None:
+        probabilities = calculate_probabilities(source)
     
     print(f"\nSource: {source}")
     print(f"Number of symbols: {len(source)}")
@@ -168,7 +168,7 @@ def mutual_information(joint_probabilities, prob_x, prob_y):
     return I_xy
 
 
-def analyze_two_sources(source_x, source_y):
+def analyze_two_sources(source_x, source_y, probabilities_x, probabilities_y):
     """
     Complete analysis of two sources
     Args:
@@ -178,9 +178,11 @@ def analyze_two_sources(source_x, source_y):
     print("ANALYSIS OF TWO SOURCES")
     print("=" * 60)
     
-    # Calculate probabilities
-    prob_x = calculate_probabilities(source_x)
-    prob_y = calculate_probabilities(source_y)
+    if probabilities_x is None:
+        probabilities_x = calculate_probabilities(source_x)
+    if probabilities_y is None:
+        probabilities_y = calculate_probabilities(source_y)
+    
     joint_probabilities = calculate_joint_probabilities(source_x, source_y)
     
     print(f"\nSource X: {source_x}")
@@ -230,17 +232,20 @@ def analyze_two_sources(source_x, source_y):
 
 def main_menu():
     while True:
+        print()
+        print()
         print("MAIN MENU", "-" * 35)
         print("1. Analyze a single source")
         print("2. Analyze two sources")
         print("3. Enter probabilities manually")
         print("4. Quit")
         choice = input("Enter your choice (1-4) : ")
+        print()
 
         if choice == "1":
             source = input("Enter your sequence of symbols (ex: AADCCB) : ")
 
-            analyze_source(source)
+            analyze_source(source, None)
 
 
         elif choice == "2":
@@ -250,7 +255,7 @@ def main_menu():
             source_x = input("Enter the first source : ").split()
             source_y = input("Enter the second source : ").split()
 
-            analyze_two_sources(source_x, source_y)
+            analyze_two_sources(source_x, source_y, None, None)
 
 
         elif choice == "3":
@@ -280,6 +285,13 @@ def main_menu():
 
             print(f"\nEntered probabilities : {probs}")
             print(f"Entropy : {source_entropy(probs):.4f} bits")
+            
+            # Create a source string from the symbols in probabilities dictionary
+            source = ''.join(probs.keys())
+            
+            # Call analyze_source with the probabilities dictionary
+            analyze_source(source, probs)
+
 
 
         elif choice == "4":

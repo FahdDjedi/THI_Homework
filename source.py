@@ -173,6 +173,66 @@ def mutual_information(source_x, source_y):
     I_xy = source_entropy(source_x) + source_entropy(source_y) - source_joint_entropy_independant(source_x, source_y)
     return I_xy
 
+def joint_probabilities_independant(source_x, source_y):
+    """
+    Calculate joint probabilities P(x,y)
+    Args:
+        source_x, source_y: Lists of symbols (same length)
+    Returns:
+        Dictionary {(x, y): P(x, y)}
+    """
+    if len(source_x) != len(source_y):
+        raise ValueError("The two sources must have the same length")
+
+    joint_prob = {}
+    for symbol, prob in source_x.items():
+        for symbol2, prob2 in source_y.items():
+            joint_prob[(symbol, symbol2)] = prob * prob2
+    
+    return joint_prob
+
+
+
+def joint_probabilities_dependent(source_x, source_y):
+    """
+    Calculate joint probabilities P(x,y)
+    Args:
+        source_x, source_y: Lists of symbols (same length)
+    Returns:
+        Dictionary {(x, y): P(x, y)}
+    """
+    if len(source_x) != len(source_y):
+        raise ValueError("The two sources must have the same length")
+
+    joint_prob = {}
+    cond_prob = conditional_probabilities(source_x, source_y)
+    for symbol, prob in source_x.items():
+        for symbol2, prob2 in source_y.items():
+            joint_prob[(symbol, symbol2)] = cond_prob[symbol, symbol2] * prob2  # P(x,y) = P(x|y) * P(y)
+    
+    return joint_prob
+
+
+def conditional_probabilities(source_x, source_y):
+    """
+    Calculate conditional probabilities P(y|x)
+    Args:
+        source_x, source_y: Lists of symbols (same length)
+    Returns:
+        Dictionary {(x, y): P(y|x)}
+    """
+    if len(source_x) != len(source_y):
+        raise ValueError("The two sources must have the same length")
+
+    cond_prob = {}
+    joint_prob = joint_probabilities_independant(source_x, source_y)
+    for symbol, prob in source_x.items():
+        for symbol2, prob2 in source_y.items():
+            cond_prob[(symbol, symbol2)] =   joint_prob[(symbol, symbol2)] / prob2 if prob2 > 0 else 0  
+            # since P(x|y) = P(x,y)/p(y)
+    
+    return cond_prob
+
 
 def analyze_two_sources(source_x, source_y, dependant):
     """
@@ -192,6 +252,18 @@ def analyze_two_sources(source_x, source_y, dependant):
         raise ValueError("The two sources must have the same length")
     
     if not dependant:
+        #joint probabilities
+        joint_prob = joint_probabilities_independant(source_x, source_y)
+        print("\n--- Joint Probabilities P(X,Y) ---")
+        for (sym_x, sym_y), prob in sorted(joint_prob.items()):
+            print(f"P({sym_x}, {sym_y}) = {prob:.4f}")
+        
+        #conditional probabilities
+        cond_prob = conditional_probabilities(source_x, source_y)
+        print("\n--- Conditional Probabilities P(Y|X) ---")
+        for (sym_x, sym_y), prob in sorted(cond_prob.items()):
+            print(f"P({sym_y}|{sym_x}) = {prob:.4f}")
+
         # Marginal entropies
         H_x = source_entropy(source_x)
         H_y = source_entropy(source_y)
@@ -227,6 +299,18 @@ def analyze_two_sources(source_x, source_y, dependant):
         print(f"H(X|Y) = H(X,Y) - H(Y) : {H_x_given_y:.2f} = {H_xy - H_y:.2f} ✓" if math.isclose(H_x_given_y, H_xy - H_y, rel_tol=1e-5) else f"H(X|Y) ≠ H(X,Y) - H(Y) ✗")
         print()
     else:
+        #joint probabilities
+        joint_prob = joint_probabilities_dependent(source_x, source_y)
+        print("\n--- Joint Probabilities P(X,Y) ---")
+        for (sym_x, sym_y), prob in sorted(joint_prob.items()):
+            print(f"P({sym_x}, {sym_y}) = {prob:.4f}")
+
+        #conditional probabilities
+        cond_prob = conditional_probabilities(source_x, source_y)
+        print("\n--- Conditional Probabilities P(Y|X) ---")
+        for (sym_x, sym_y), prob in sorted(cond_prob.items()):
+            print(f"P({sym_y}|{sym_x}) = {prob:.4f}")
+            
         # Marginal entropies
         H_y = source_entropy(source_y)
 

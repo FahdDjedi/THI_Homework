@@ -19,7 +19,7 @@ def information_quantity(probability):
     return -math.log2(probability)
 
 
-def calculate_probabilities(source):
+def calculate_equiproba(source):
     """
     Calculates the probabilities of elements in a source
     Args:
@@ -34,103 +34,114 @@ def calculate_probabilities(source):
     return probabilities
 
 
-def source_entropy(probabilities):
+def source_entropy(source):
     """
-    Calculates the Shannon entropy of a source
-    H(X) = -Σ P(x) * log2(P(x))
+    Calculates the entropy of a source
+    H(X) = -Σ P(x) * log2(P(x)) = Σ pi * I(pi)
     Args:
-        probabilities: Dictionary {symbol: probability} or list of probabilities
+        source: Dictionary {symbol: probability} or list of probabilities
     Returns:
-        Entropy in bits
+        Entropy in bits/symbol
     """
-    if isinstance(probabilities, dict):
-        probs = list(probabilities.values())
-    else:
-        probs = probabilities
-    
-    # Check that sum of probabilities = 1
-    total_sum = sum(probs)
-    if not total_sum == 1:
-        raise ValueError(f"Sum of probabilities must be 1 (sum = {total_sum})")
-    
-    entropy = 0
-    for p in probs:
-        if p > 0:
-            entropy -= p * math.log2(p)
-    
+    entropy = 0.0
+    # Accept either a dict of {symbol: prob} or an iterable of probabilities
+    probabilities_iter = source.values() if isinstance(source, dict) else source
+    for prob in probabilities_iter:
+        if prob > 0:
+            ProbInfo = information_quantity(prob)
+            entropy += ProbInfo * prob
     return entropy
 
 
-def analyze_source(source, probabilities):
+def source_max_entropy(source):
+    """
+    Calculate the Max entropy of a given source
+    Hmax(X) = log2(n) , n = number of elements if the source
+    Args:
+        source: Dictionary {symbol: probability} or list of probabilities
+    return:
+        max entropy in bits/symbol
+    """
+
+    # Only two supported inputs: dict of probabilities or list of floats
+    n = len(source)
+    if n <= 0:
+        raise ValueError("Source must contain at least one symbol/probability")
+
+    return math.log2(n)
+
+
+
+
+
+
+def analyze_source(source):
     """
     Complete analysis of a source: probabilities, information quantities and entropy
     Args:
-        source: List or string of symbols
-        probabilities: Dictionary {symbol: probability} or None
+        source: List or dist of symbols
     Returns:
         None
     """
     print("SOURCE ANALYSIS ", "-" * 35)
-    
-    if probabilities is None:
-        probabilities = calculate_probabilities(source)
     
     print(f"\nSource: {source}")
     print(f"Number of symbols: {len(source)}")
     print(f"Alphabet: {set(source)}")
     
     print("\n--- Probabilities and Information Quantities ---")
-    for symbol, prob in sorted(probabilities.items()):
-        info = information_quantity(prob)
-        print(f"P({symbol}) = {prob:.2f} → I({symbol}) = {info:.2f} bits")
-    
-    H = source_entropy(probabilities)
+    if isinstance(source, dict):
+        for symbol, prob in sorted(source.items()):
+            info = information_quantity(prob)
+            print(f"P({symbol}) = {prob:.2f} → I({symbol}) = {info:.2f} bits")
+    else:
+        for prob in sorted(source.items()):
+            info = information_quantity(prob) 
+            print(f"I({prob}) = {info:.2f} bits")
+
+    H = source_entropy(source)
+    Hmax = source_max_entropy(source)
     print(f"\n--- Source Entropy ---")
     print(f"H(X) = {H:.2f} bits")
-    print(f"Maximum possible entropy: {math.log2(len(probabilities)):.2f} bits")
-    print(f"Efficiency: {H / math.log2(len(probabilities)) * 100:.2f}%")
+    print(f"Maximum possible entropy: {Hmax:.2f} bits")
+    print(f"Efficiency: {(H / Hmax * 100):.2f} %")
     print("-" * 50)
 
 
 # =-----------------------------------------------------------------------------------------------------------------------
 # 2/ Joint Entropy, Conditional Entropy and Mutual Information
 
-def calculate_joint_probabilities(source_x, source_y):
+def source_joint_entropy_independant(source_x, source_y):
     """
-    Calculates joint probabilities P(X,Y)
+    Calculates joint entropy H(X,Y)
     Args:
         source_x, source_y: Lists of symbols (same length)
     Returns:
-        Dictionary {(x, y): P(x, y)}
+        Joint entropy in bits/symbols
     """
     if len(source_x) != len(source_y):
         raise ValueError("The two sources must have the same length")
     
-    pairs = list(zip(source_x, source_y))
-    counter = Counter(pairs)
-    total = len(pairs)
-    
-    joint_probabilities = {pair: count / total for pair, count in counter.items()}
-    return joint_probabilities
+    Hx= source_entropy(source_x)
+    Hy= source_entropy(source_y)
 
+    return Hx + Hy
 
-def joint_entropy(joint_probabilities):
+def source_joint_entropy_dependent(source_x, source_y):
     """
     Calculates joint entropy H(X,Y)
-    H(X,Y) = -Σ P(x,y) * log2(P(x,y))
     Args:
-        joint_probabilities: Dictionary {(x, y): P(x, y)}
+        source_x, source_y: Lists of symbols (same length)
     Returns:
-        Joint entropy
+        Joint entropy in bits/symbols
     """
-    H_xy = 0
-    for prob in joint_probabilities.values():
-        if prob > 0:
-            H_xy -= prob * math.log2(prob)
-    return H_xy
+    if len(source_x) != len(source_y):
+        raise ValueError("The two sources must have the same length")
+    
+    return source_entropy(source_x)
 
 
-def conditional_entropy(joint_probabilities, prob_x):
+def conditional_entropy(source_x, source_y):
     """
     Calculates average conditional entropy H(Y|X)
     H(Y|X) = -Σ P(x,y) * log2(P(y|x))
@@ -141,34 +152,29 @@ def conditional_entropy(joint_probabilities, prob_x):
     Returns:
         Conditional entropy in bits
     """
-    H_y_given_x = 0
-    for (x, y), prob_xy in joint_probabilities.items():
-        if prob_xy > 0 and prob_x[x] > 0:
-            prob_y_given_x = prob_xy / prob_x[x]
-            H_y_given_x -= prob_xy * math.log2(prob_y_given_x)
-    return H_y_given_x
+    if len(source_x) != len(source_y):
+        raise ValueError("The two sources must have the same length")
+    
+    H_x_given_y = source_joint_entropy_independant(source_x, source_y) - source_entropy(source_y)
+    return H_x_given_y
 
 
-def mutual_information(joint_probabilities, prob_x, prob_y):
+
+def mutual_information(source_x, source_y):
     """
     Calculates mutual information I(X;Y)
     I(X;Y) = Σ P(x,y) * log2(P(x,y) / (P(x) * P(y)))
            = H(X) + H(Y) - H(X,Y)
     Args:
-        joint_probabilities: Dictionary {(x, y): P(x, y)}
-        prob_x: Dictionary {x: P(x)}
-        prob_y: Dictionary {y: P(y)}
+        source_x, source_y: Lists or dict of symbols (same length)
     Returns:
         Mutual information in bits
     """
-    I_xy = 0
-    for (x, y), prob_xy in joint_probabilities.items():
-        if prob_xy > 0 and prob_x[x] > 0 and prob_y[y] > 0:
-            I_xy += prob_xy * math.log2(prob_xy / (prob_x[x] * prob_y[y]))
+    I_xy = source_entropy(source_x) + source_entropy(source_y) - source_joint_entropy_independant(source_x, source_y)
     return I_xy
 
 
-def analyze_two_sources(source_x, source_y, probabilities_x, probabilities_y):
+def analyze_two_sources(source_x, source_y, dependant):
     """
     Complete analysis of two sources
     Args:
@@ -178,53 +184,80 @@ def analyze_two_sources(source_x, source_y, probabilities_x, probabilities_y):
     print("ANALYSIS OF TWO SOURCES")
     print("=" * 60)
     
-    if probabilities_x is None:
-        probabilities_x = calculate_probabilities(source_x)
-    if probabilities_y is None:
-        probabilities_y = calculate_probabilities(source_y)
-    
-    joint_probabilities = calculate_joint_probabilities(source_x, source_y)
-    
     print(f"\nSource X: {source_x}")
     print(f"Source Y: {source_y}")
     print(f"Number of observations: {len(source_x)}")
+
+    if len(source_x) != len(source_y):
+        raise ValueError("The two sources must have the same length")
     
-    # Marginal entropies
-    H_x = source_entropy(prob_x)
-    H_y = source_entropy(prob_y)
-    
-    print("\n--- Marginal Entropies ---")
-    print(f"H(X) = {H_x:.4f} bits")
-    print(f"H(Y) = {H_y:.4f} bits")
-    
-    # Joint entropy
-    H_xy = joint_entropy(joint_probabilities)
-    print("\n--- Joint Entropy ---")
-    print(f"H(X,Y) = {H_xy:.4f} bits")
-    
-    # Conditional entropies
-    H_y_given_x = conditional_entropy(joint_probabilities, prob_x)
-    H_x_given_y = conditional_entropy(
-        {(y, x): p for (x, y), p in joint_probabilities.items()},
-        prob_y
-    )
-    
-    print("\n--- Conditional Entropies ---")
-    print(f"H(Y|X) = {H_y_given_x:.4f} bits")
-    print(f"H(X|Y) = {H_x_given_y:.4f} bits")
-    
-    # Mutual information
-    I_xy = mutual_information(joint_probabilities, prob_x, prob_y)
-    
-    print("\n--- Mutual Information ---")
-    print(f"I(X;Y) = {I_xy:.4f} bits")
-    
-    # Verifications
-    print("\n--- Verifications ---")
-    print(f"H(X,Y) = H(X) + H(Y|X) : {H_xy:.4f} = {H_x + H_y_given_x:.4f} ✓" if math.isclose(H_xy, H_x + H_y_given_x, rel_tol=1e-5) else f"H(X,Y) ≠ H(X) + H(Y|X) ✗")
-    print(f"I(X;Y) = H(X) + H(Y) - H(X,Y) : {I_xy:.4f} = {H_x + H_y - H_xy:.4f} ✓" if math.isclose(I_xy, H_x + H_y - H_xy, rel_tol=1e-5) else f"I(X;Y) ≠ H(X) + H(Y) - H(X,Y) ✗")
-    print(f"I(X;Y) = H(Y) - H(Y|X) : {I_xy:.4f} = {H_y - H_y_given_x:.4f} ✓" if math.isclose(I_xy, H_y - H_y_given_x, rel_tol=1e-5) else f"I(X;Y) ≠ H(Y) - H(Y|X) ✗")
-    print()
+    if not dependant:
+        # Marginal entropies
+        H_x = source_entropy(source_x)
+        H_y = source_entropy(source_y)
+
+        print("\n--- Marginal Entropies ---")
+        print(f"H(X) = {H_x:.2f} bits")
+        print(f"H(Y) = {H_y:.2f} bits")
+        
+        # Joint entropy
+        H_xy = source_joint_entropy_independant(source_x, source_y)
+        print("\n--- Joint Entropy ---")
+        print(f"H(X,Y) = {H_xy:.2f} bits")
+        
+        # Conditional entropies
+        H_x_given_y = conditional_entropy(source_x, source_y)
+        H_y_given_x = conditional_entropy(source_y, source_x)
+
+        print("\n--- Conditional Entropies ---")
+        print(f"H(X|Y) = {H_x_given_y:.2f} bits")
+        print(f"H(Y|X) = {H_y_given_x:.2f} bits")
+        
+        # Mutual information
+        I_xy = mutual_information(source_x, source_y)
+        
+        print("\n--- Mutual Information ---")
+        print(f"I(X;Y) = {I_xy:.2f} bits")
+        
+        # Verifications
+        print("\n--- Verifications ---")
+        print(f"H(X,Y) = H(X) + H(Y|X) : {H_xy:.2f} = {H_x + H_y_given_x:.2f} ✓" if math.isclose(H_xy, H_x + H_y_given_x, rel_tol=1e-5) else f"H(X,Y) ≠ H(X) + H(Y|X) ✗")
+        print(f"I(X;Y) = H(X) + H(Y) - H(X,Y) : {I_xy:.2f} = {H_x + H_y - H_xy:.2f} ✓" if math.isclose(I_xy, H_x + H_y - H_xy, rel_tol=1e-5) else f"I(X;Y) ≠ H(X) + H(Y) - H(X,Y) ✗")
+        print(f"H(Y|X) = H(X,Y) - H(X) : {H_y_given_x:.2f} = {H_xy - H_x:.2f} ✓" if math.isclose(H_y_given_x, H_xy - H_x, rel_tol=1e-5) else f"H(Y|X) ≠ H(X,Y) - H(X) ✗")
+        print(f"H(X|Y) = H(X,Y) - H(Y) : {H_x_given_y:.2f} = {H_xy - H_y:.2f} ✓" if math.isclose(H_x_given_y, H_xy - H_y, rel_tol=1e-5) else f"H(X|Y) ≠ H(X,Y) - H(Y) ✗")
+        print()
+    else:
+        # Marginal entropies
+        H_y = source_entropy(source_y)
+
+        print("\n--- Marginal Entropies ---")
+        print(f"H(X) = {H_x:.2f} bits")
+        print(f"H(Y) = {H_y:.2f} bits")
+
+        # Joint entropy
+        H_xy = source_joint_entropy_dependent(source_x, source_y)
+        print("\n--- Joint Entropy ---")
+        print(f"H(X,Y) = H(X) = H(Y) = {H_xy:.2f} bits")
+
+        # Conditional entropies
+        H_y_given_x = conditional_entropy(source_x, source_y)
+
+        print("\n--- Conditional Entropies ---")
+        print("since X depends totally on Y then H(X|Y) = 0")
+        print(f"H(Y|X) = {H_y_given_x:.2f} bits")
+
+        # Mutual information
+        I_xy = mutual_information(source_x, source_y)
+        print("\n--- Mutual Information ---")
+        print(f"since Y determines totally X then I(X;Y) = H(X) = H(Y) = {H_y:.2f} bits")
+
+        # Verifications
+        print("\n--- Verifications ---")
+        print(f"H(X,Y) = H(Y) = H(X) : {H_xy:.2f} = {H_y :.2f} ✓")
+        print(f"I(X;Y) = H(X) = H(Y) : {I_xy:.2f} = {H_y:.2f} ✓")
+        print(f"H(Y|X) = 0 ✓")
+        print(f"H(X|Y) = 0 ✓")
+        print()
 
 
 # -----------------------------------------------------------------------------------------------------------------------
@@ -237,28 +270,12 @@ def main_menu():
         print("MAIN MENU", "-" * 35)
         print("1. Analyze a single source")
         print("2. Analyze two sources")
-        print("3. Enter probabilities manually")
-        print("4. Quit")
-        choice = input("Enter your choice (1-4) : ")
+        print("3. Quit")
+        choice = input("Enter your choice (1-3) : ")
         print()
 
         if choice == "1":
-            source = input("Enter your sequence of symbols (ex: AADCCB) : ")
-
-            analyze_source(source, None)
-
-
-        elif choice == "2":
-            print("For two sources, enter symbols separated by spaces")
-            print("Example: A A B B C for sequence AABBC")
-
-            source_x = input("Enter the first source : ").split()
-            source_y = input("Enter the second source : ").split()
-
-            analyze_two_sources(source_x, source_y, None, None)
-
-
-        elif choice == "3":
+            print("Enter your sequence of symbols : \n")
             print("Enter probabilities in the form 'symbol:probability'")
             print("One entry per line. Press Enter twice to finish.")
             print("Example :")
@@ -267,34 +284,86 @@ def main_menu():
             print("C:0.05")
             print("D:0.2")
             print("(probabilities must sum to 1)")
-            probs = {}
+            source = {}
             while True:
                 line = input()
                 if not line:
                     break
                 try:
                     symbol, prob = line.split(":")
-                    probs[symbol.strip()] = float(prob.strip())
+                    source[symbol.strip()] = float(prob.strip())
                 except:
                     print("Invalid format. Use 'symbol:probability'")
                     continue
 
-            if abs(sum(probs.values()) - 1.0) > 1e-5:
+            if abs(sum(source.values()) - 1.0) > 1e-5:
                 print("\nError : The sum of probabilities must equal 1 !")
                 continue
 
-            print(f"\nEntered probabilities : {probs}")
-            print(f"Entropy : {source_entropy(probs):.4f} bits")
+            print(f"\nEntered probabilities : {source.values()}\n")
+
+            analyze_source(source)
+
+
+        elif choice == "2":
+            print("For two sources, enter symbols separated by spaces")
             
-            # Create a source string from the symbols in probabilities dictionary
-            source = ''.join(probs.keys())
-            
-            # Call analyze_source with the probabilities dictionary
-            analyze_source(source, probs)
+            print("Enter probabilities in the form 'symbol:probability'")
+            print("One entry per line. Press Enter twice to finish.")
+            print("Example :")
+            print("A:0.4")
+            print("B:0.35")
+            print("C:0.05")
+            print("D:0.2")
+            print("(probabilities must sum to 1)")
+            print("SOURCE X :-------")
+            source_x = {}
+            while True:
+                line = input()
+                if not line:
+                    break
+                try:
+                    symbol, prob = line.split(":")
+                    source_x[symbol.strip()] = float(prob.strip())
+                except:
+                    print("Invalid format. Use 'symbol:probability'")
+                    continue
+
+            if abs(sum(source_x.values()) - 1.0) > 1e-5:
+                print("\nError : The sum of probabilities must equal 1 !")
+                continue
+
+            print("SOURCE Y :-------")
+            source_y = {}
+            while True:
+                line = input()
+                if not line:
+                    break
+                try:
+                    symbol, prob = line.split(":")
+                    source_y[symbol.strip()] = float(prob.strip())
+                except:
+                    print("Invalid format. Use 'symbol:probability'")
+                    continue
+
+            if abs(sum(source_y.values()) - 1.0) > 1e-5:
+                print("\nError : The sum of probabilities must equal 1 !")
+                continue
+
+            print("are the two sources independant ? (y/n) : ")
+            dep_choice = input().strip().lower()
+            if dep_choice == 'y':
+                dependant = False
+            elif dep_choice == 'n':
+                dependant = True
+            else:
+                print("Invalid choice. Assuming independant sources.")
+                dependant = False
+
+            analyze_two_sources(source_x, source_y, dependant)
 
 
-
-        elif choice == "4":
+        elif choice == "3":
             print("\nGoodbye !", "-" * 35)
             break
 

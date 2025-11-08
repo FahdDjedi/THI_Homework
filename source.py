@@ -83,7 +83,9 @@ def analyze_source(source):
     Returns:
         None
     """
-    print("SOURCE ANALYSIS ", "-" * 35)
+    print("=" * 60)
+    print("SOURCE ANALYSIS ")
+    print("=" * 60)
     
     print(f"\nSource: {source}")
     print(f"Number of symbols: {len(source)}")
@@ -93,17 +95,19 @@ def analyze_source(source):
     if isinstance(source, dict):
         for symbol, prob in sorted(source.items()):
             info = information_quantity(prob)
-            print(f"P({symbol}) = {prob:.5f} → I({symbol}) = {info:.5f} bits")
+            print(f"P({symbol}) = {prob:.5f}")
+            print()
+            print(f"I({symbol}) = {info:.5f} bits/symbol")
     else:
         for prob in sorted(source.items()):
             info = information_quantity(prob) 
-            print(f"I({prob}) = {info:.5f} bits")
+            print(f"I({prob}) = {info:.5f} bits/symbol")
 
     H = source_entropy(source)
     Hmax = source_max_entropy(source)
     print(f"\n--- Source Entropy ---")
-    print(f"H(X) = {H:.5f} bits")
-    print(f"Maximum possible entropy: {Hmax:.5f} bits")
+    print(f"H(X) = {H:.5f} bits/symbol")
+    print(f"Maximum possible entropy: {Hmax:.5f} bits/symbol")
     print(f"Efficiency: {(H / Hmax * 100):.5f} %")
     print("-" * 50)
 
